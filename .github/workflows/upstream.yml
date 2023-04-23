@@ -15,11 +15,7 @@ on:
   schedule:
     - cron: 0 */12 * * *
   workflow_dispatch:
-    inputs:
-      ssh:
-        description: 'ssh'
-        required: false
-        default: 'true'
+    
   watch:
     types: started
   repository_dispatch:
@@ -119,9 +115,7 @@ jobs:
       run: |
         shopt -s extglob
         rm -Rf */.git
-    - name: SSH connection to Actions
-      uses: kiddin9/debugger-action@master
-      if: github.event.inputs.ssh == 'true'
+    
     - name: Apply
       run: |
         Emoji=("🎉" "🤞" "✨" "🎁" "🎈" "🎄" "🎨" "💋" "🍓" "🍕" "🍉" "💐" "🌴" "🚀" "🛸" "🗽" "⛅" "🌈" "🔥" "⛄" "🐶" "🏅" "🦄" "🐤")
