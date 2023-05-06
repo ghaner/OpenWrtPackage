@@ -1,4 +1,4 @@
-### OpenWrt — 自定义编译插件
+### OpenWrt — 自定义编译插件 经典版本
 
 [![openwrt](https://img.shields.io/badge/source-openwrt-blue.svg?style=flat&logo=appveyor)](https://github.com/openwrt/openwrt) 
 [![Lean](https://img.shields.io/badge/source-Lean-red.svg?style=flat&logo=appveyor)](https://github.com/coolsnowwolf/lede) 
