@@ -14,5 +14,6 @@
 | [luci-app-fileassistant](https://github.com/ghaner/OpenWrt-Packages)|路由器文件管理|https://github.com/MonwF/luci-app-filebrowser|
 | [luci-app-ikoolproxy](https://github.com/ilxp/luci-app-ikoolproxy)|广告拦截|https://github.com/ilxp/luci-app-ikoolproxy| 
 | [luci-app-openclash](https://github.com/vernesong/OpenClash)|A Clash Client For OpenWrt|https://github.com/vernesong/OpenClash|
-| [luci-app-timedreboot](https://github.com/kongfl888/luci-app-timedreboot)|定时重启|https://github.com/kongfl888/luci-app-timedreboot| 
+| [luci-app-timedreboot](https://github.com/kongfl888/luci-app-timedreboot)|定时重启|https://github.com/kongfl888/luci-app-timedreboot|
+| [luci-theme-argon](https://github.com/jerrykuku/luci-theme-argon/tree/18.06)|漂亮主题|https://github.com/jerrykuku/luci-theme-argon| 
 
