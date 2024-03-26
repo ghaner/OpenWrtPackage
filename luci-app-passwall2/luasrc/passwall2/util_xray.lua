@@ -197,11 +197,7 @@ function gen_outbound(flag, node, tag, proxy_table)
 					health_check_timeout = tonumber(node.grpc_health_check_timeout) or nil,
 					permit_without_stream = (node.grpc_permit_without_stream == "1") and true or nil,
 					initial_windows_size = tonumber(node.grpc_initial_windows_size) or nil
-				} or nil,
-				httpupgradeSettings = (node.transport == "httpupgrade") and {
-					path = node.httpupgrade_path or "/",
-					host = node.httpupgrade_host
-				} or nil,
+				} or nil
 			} or nil,
 			settings = {
 				vnext = (node.protocol == "vmess" or node.protocol == "vless") and {
@@ -434,6 +430,7 @@ function gen_config_server(node)
 						}
 					} or nil,
 					tcpSettings = (node.transport == "tcp") and {
+						acceptProxyProtocol = (node.acceptProxyProtocol and node.acceptProxyProtocol == "1") and true or false,
 						header = {
 							type = node.tcp_guise,
 							request = (node.tcp_guise == "http") and {
@@ -456,6 +453,7 @@ function gen_config_server(node)
 						header = {type = node.mkcp_guise}
 					} or nil,
 					wsSettings = (node.transport == "ws") and {
+						acceptProxyProtocol = (node.acceptProxyProtocol and node.acceptProxyProtocol == "1") and true or false,
 						headers = (node.ws_host) and {Host = node.ws_host} or nil,
 						path = node.ws_path
 					} or nil,
@@ -472,14 +470,7 @@ function gen_config_server(node)
 					} or nil,
 					grpcSettings = (node.transport == "grpc") and {
 						serviceName = node.grpc_serviceName
-					} or nil,
-					httpupgradeSettings = (node.transport == "httpupgrade") and {
-						path = node.httpupgrade_path or "/",
-						host = node.httpupgrade_host
-					} or nil,
-					sockopt = {
-						acceptProxyProtocol = (node.acceptProxyProtocol and node.acceptProxyProtocol == "1") and true or false
-					}
+					} or nil
 				}
 			}
 		},
@@ -512,7 +503,9 @@ function gen_config_server(node)
 					node.reality_serverNames
 				},
 				privateKey = node.reality_private_key,
-				shortIds = node.reality_shortId or ""
+				shortIds = {
+					node.reality_shortId
+				}
 			} or nil
 		end
 	end
@@ -544,15 +537,8 @@ function gen_config(var)
 	local direct_nftset = var["-direct_nftset"]
 	local remote_dns_udp_server = var["-remote_dns_udp_server"]
 	local remote_dns_udp_port = var["-remote_dns_udp_port"]
-	local remote_dns_tcp_server = var["-remote_dns_tcp_server"]
-	local remote_dns_tcp_port = var["-remote_dns_tcp_port"]
-	local remote_dns_doh_url = var["-remote_dns_doh_url"]
-	local remote_dns_doh_host = var["-remote_dns_doh_host"]
-	local remote_dns_doh_ip = var["-remote_dns_doh_ip"]
-	local remote_dns_doh_port = var["-remote_dns_doh_port"]
 	local remote_dns_fake = var["-remote_dns_fake"]
 	local remote_dns_query_strategy = var["-remote_dns_query_strategy"]
-	local remote_dns_detour = var["-remote_dns_detour"]
 	local dns_cache = var["-dns_cache"]
 
 	local dns_domain_rules = {}
@@ -748,24 +734,23 @@ function gen_config(var)
 			local preproxy_node = preproxy_enabled and preproxy_node_id and uci:get_all(appname, preproxy_node_id) or nil
 			local preproxy_is_balancer
 
-			if preproxy_node_id and preproxy_node_id:find("Socks_") then
-				local socks_id = preproxy_node_id:sub(1 + #"Socks_")
-				local socks_node = uci:get_all(appname, socks_id) or nil
-				if socks_node then
-					local _node = {
-						type = "Xray",
-						protocol = "socks",
-						address = "127.0.0.1",
-						port = socks_node.port,
-						transport = "tcp",
-						stream_security = "none"
-					}
-					local preproxy_outbound = gen_outbound(flag, _node, preproxy_tag)
-					if preproxy_outbound then
-						table.insert(outbounds, preproxy_outbound)
-					else
-						preproxy_enabled = false
-					end
+			if not preproxy_node and preproxy_node_id and api.parseURL(preproxy_node_id) then
+				local parsed1 = api.parseURL(preproxy_node_id)
+				local _node = {
+					type = "Xray",
+					protocol = parsed1.protocol,
+					username = parsed1.username,
+					password = parsed1.password,
+					address = parsed1.host,
+					port = parsed1.port,
+					transport = "tcp",
+					stream_security = "none"
+				}
+				local preproxy_outbound = gen_outbound(flag, _node, preproxy_tag)
+				if preproxy_outbound then
+					table.insert(outbounds, preproxy_outbound)
+				else
+					preproxy_enabled = false
 				end
 			elseif preproxy_node and api.is_normal_node(preproxy_node) then
 				local preproxy_outbound = gen_outbound(flag, preproxy_node, preproxy_tag, { fragment = xray_settings.fragment == "1" or nil })
@@ -797,23 +782,22 @@ function gen_config(var)
 					rule_outboundTag = "blackhole"
 				elseif _node_id == "_default" and rule_name ~= "default" then
 					rule_outboundTag = "default"
-				elseif _node_id:find("Socks_") then
-					local socks_id = _node_id:sub(1 + #"Socks_")
-					local socks_node = uci:get_all(appname, socks_id) or nil
-					if socks_node then
-						local _node = {
-							type = "Xray",
-							protocol = "socks",
-							address = "127.0.0.1",
-							port = socks_node.port,
-							transport = "tcp",
-							stream_security = "none"
-						}
-						local _outbound = gen_outbound(flag, _node, rule_name)
-						if _outbound then
-							table.insert(outbounds, _outbound)
-							rule_outboundTag = rule_name
-						end
+				elseif api.parseURL(_node_id) then
+					local parsed1 = api.parseURL(_node_id)
+					local _node = {
+						type = "Xray",
+						protocol = parsed1.protocol,
+						username = parsed1.username,
+						password = parsed1.password,
+						address = parsed1.host,
+						port = parsed1.port,
+						transport = "tcp",
+						stream_security = "none"
+					}
+					local _outbound = gen_outbound(flag, _node, rule_name)
+					if _outbound then
+						table.insert(outbounds, _outbound)
+						rule_outboundTag = rule_name
 					end
 				elseif _node_id ~= "nil" then
 					local _node = uci:get_all(appname, _node_id)
@@ -1077,9 +1061,9 @@ function gen_config(var)
 		end
 	end
 	
-	if dns_listen_port then
+	if remote_dns_udp_server then
 		local rules = {}
-		local _remote_dns_proto = "tcp"
+		local _remote_dns_proto
 	
 		if not routing then
 			routing = {
@@ -1122,46 +1106,27 @@ function gen_config(var)
 			end)
 		end
 	
-		local _remote_dns = {
-			_flag = "remote",
-			queryStrategy = (remote_dns_query_strategy and remote_dns_query_strategy ~= "") and remote_dns_query_strategy or "UseIPv4"
-		}
-
+		local _remote_dns = nil
 		if remote_dns_udp_server then
-			_remote_dns.address = remote_dns_udp_server
-			_remote_dns.port = tonumber(remote_dns_udp_port) or 53
+			_remote_dns = {
+				_flag = "remote",
+				address = remote_dns_udp_server,
+				port = tonumber(remote_dns_udp_port) or 53,
+				queryStrategy = (remote_dns_query_strategy and remote_dns_query_strategy ~= "") and remote_dns_query_strategy or "UseIPv4"
+			}
 			_remote_dns_proto = "udp"
-		end
-
-		if remote_dns_tcp_server then
-			_remote_dns.address = "tcp://" .. remote_dns_tcp_server
-			_remote_dns.port = tonumber(remote_dns_tcp_port) or 53
-			_remote_dns_proto = "tcp"
-		end
-
-		if remote_dns_doh_url and remote_dns_doh_host then
-			if remote_dns_doh_ip and remote_dns_doh_host ~= remote_dns_doh_ip and not api.is_ip(remote_dns_doh_host) then
-				dns.hosts[remote_dns_doh_host] = remote_dns_doh_ip
-			end
-			_remote_dns.address = remote_dns_doh_url
-			_remote_dns.port = tonumber(remote_dns_doh_port) or 443
-		end
-
-		if _remote_dns.address then
 			table.insert(dns.servers, _remote_dns)
-			if remote_dns_detour == "direct" then
-				table.insert(routing.rules, 1, {
-					type = "field",
-					ip = {
-						_remote_dns.address
-					},
-					port = _remote_dns.port,
-					network = _remote_dns_proto,
-					outboundTag = "direct"
-				})
-			end
-		end
 
+			table.insert(routing.rules, 1, {
+				type = "field",
+				ip = {
+					remote_dns_udp_server
+				},
+				port = tonumber(remote_dns_udp_port) or 53,
+				network = _remote_dns_proto,
+				outboundTag = "direct"
+			})
+		end
 		local _remote_fakedns = nil
 		if remote_dns_fake then
 			fakedns = {}
@@ -1228,7 +1193,8 @@ function gen_config(var)
 				protocol = "dokodemo-door",
 				tag = "dns-in",
 				settings = {
-					address = "0.0.0.0",
+					address = "1.1.1.1",
+					port = 53,
 					network = "tcp,udp"
 				}
 			})
@@ -1249,9 +1215,12 @@ function gen_config(var)
 					port = tonumber(remote_dns_udp_port) or 53,
 					network = _remote_dns_proto or "tcp",
 					nonIPQuery = "drop"
+				},
+				proxySettings = {
+					tag = "direct"
 				}
 			}
-			local type_dns = direct_type_dns
+			local type_dns = remote_type_dns
 			table.insert(outbounds, {
 				tag = "dns-out",
 				protocol = "dns",

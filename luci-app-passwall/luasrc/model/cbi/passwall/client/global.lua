@@ -1,5 +1,5 @@
 local api = require "luci.passwall.api"
-local appname = "passwall"
+local appname = api.appname
 local uci = api.uci
 local datatypes = api.datatypes
 local has_singbox = api.finded_com("singbox")
@@ -9,56 +9,30 @@ local has_chnlist = api.fs.access("/usr/share/passwall/rules/chnlist")
 local has_chnroute = api.fs.access("/usr/share/passwall/rules/chnroute")
 
 m = Map(appname)
-api.set_apply_on_parse(m)
 
 local nodes_table = {}
 for k, e in ipairs(api.get_valid_nodes()) do
 	nodes_table[#nodes_table + 1] = e
 end
 
-local normal_list = {}
-local balancing_list = {}
-local shunt_list = {}
-local iface_list = {}
-for k, v in pairs(nodes_table) do
-	if v.node_type == "normal" then
-		normal_list[#normal_list + 1] = v
-	end
-	if v.protocol and v.protocol == "_balancing" then
-		balancing_list[#balancing_list + 1] = v
-	end
-	if v.protocol and v.protocol == "_shunt" then
-		shunt_list[#shunt_list + 1] = v
-	end
-	if v.protocol and v.protocol == "_iface" then
-		iface_list[#iface_list + 1] = v
-	end
-end
-
-local socks_list = {}
-
 local tcp_socks_server = "127.0.0.1" .. ":" .. (uci:get(appname, "@global[0]", "tcp_node_socks_port") or "1070")
 local socks_table = {}
 socks_table[#socks_table + 1] = {
 	id = tcp_socks_server,
-	remark = tcp_socks_server .. " - " .. translate("TCP Node")
+	remarks = tcp_socks_server .. " - " .. translate("TCP Node")
 }
 uci:foreach(appname, "socks", function(s)
 	if s.enabled == "1" and s.node then
-		local id, remark
+		local id, remarks
 		for k, n in pairs(nodes_table) do
 			if (s.node == n.id) then
-				remark = n["remark"]; break
+				remarks = n["remark"]; break
 			end
 		end
 		id = "127.0.0.1" .. ":" .. s.port
 		socks_table[#socks_table + 1] = {
 			id = id,
-			remark = id .. " - " .. (remark or translate("Misconfigured"))
-		}
-		socks_list[#socks_list + 1] = {
-			id = "Socks_" .. s[".name"],
-			remark = translate("Socks Config") .. " " .. string.format("[%s %s]", s.port, translate("Port"))
+			remarks = id .. " - " .. (remarks or translate("Misconfigured"))
 		}
 	end
 end)
@@ -109,6 +83,25 @@ udp_node:value("tcp", translate("Same as the tcp node"))
 
 -- 分流
 if (has_singbox or has_xray) and #nodes_table > 0 then
+	local normal_list = {}
+	local balancing_list = {}
+	local shunt_list = {}
+	local iface_list = {}
+	for k, v in pairs(nodes_table) do
+		if v.node_type == "normal" then
+			normal_list[#normal_list + 1] = v
+		end
+		if v.protocol and v.protocol == "_balancing" then
+			balancing_list[#balancing_list + 1] = v
+		end
+		if v.protocol and v.protocol == "_shunt" then
+			shunt_list[#shunt_list + 1] = v
+		end
+		if v.protocol and v.protocol == "_iface" then
+			iface_list[#iface_list + 1] = v
+		end
+	end
+
 	local function get_cfgvalue(shunt_node_id, option)
 		return function(self, section)
 			return m:get(shunt_node_id, option) or "nil"
@@ -140,11 +133,8 @@ if (has_singbox or has_xray) and #nodes_table > 0 then
 			o.cfgvalue = get_cfgvalue(v.id, "preproxy_enabled")
 			o.write = get_write(v.id, "preproxy_enabled")
 
-			o = s:taboption("Main", ListValue, vid .. "-main_node", string.format('<a style="color:red">%s</a>', translate("Preproxy Node")), translate("Set the node to be used as a pre-proxy. Each rule (including <code>Default</code>) has a separate switch that controls whether this rule uses the pre-proxy or not."))
+			o = s:taboption("Main", Value, vid .. "-main_node", string.format('<a style="color:red">%s</a>', translate("Preproxy Node")), translate("Set the node to be used as a pre-proxy. Each rule (including <code>Default</code>) has a separate switch that controls whether this rule uses the pre-proxy or not."))
 			o:depends(vid .. "-preproxy_enabled", "1")
-			for k1, v1 in pairs(socks_list) do
-				o:value(v1.id, v1.remark)
-			end
 			for k1, v1 in pairs(balancing_list) do
 				o:value(v1.id, v1.remark)
 			end
@@ -167,7 +157,7 @@ if (has_singbox or has_xray) and #nodes_table > 0 then
 				local id = e[".name"]
 				local node_option = vid .. "-" .. id .. "_node"
 				if id and e.remarks then
-					o = s:taboption("Main", ListValue, node_option, string.format('* <a href="%s" target="_blank">%s</a>', api.url("shunt_rules", id), e.remarks))
+					o = s:taboption("Main", Value, node_option, string.format('* <a href="%s" target="_blank">%s</a>', api.url("shunt_rules", id), e.remarks))
 					o.cfgvalue = get_cfgvalue(v.id, id)
 					o.write = get_write(v.id, id)
 					o:depends("tcp_node", v.id)
@@ -182,9 +172,6 @@ if (has_singbox or has_xray) and #nodes_table > 0 then
 					pt:value("nil", translate("Close"))
 					pt:value("main", translate("Preproxy Node"))
 					pt.default = "nil"
-					for k1, v1 in pairs(socks_list) do
-						o:value(v1.id, v1.remark)
-					end
 					for k1, v1 in pairs(balancing_list) do
 						o:value(v1.id, v1.remark)
 					end
@@ -199,15 +186,12 @@ if (has_singbox or has_xray) and #nodes_table > 0 then
 			end)
 
 			local id = "default_node"
-			o = s:taboption("Main", ListValue, vid .. "-" .. id, string.format('* <a style="color:red">%s</a>', translate("Default")))
+			o = s:taboption("Main", Value, vid .. "-" .. id, string.format('* <a style="color:red">%s</a>', translate("Default")))
 			o.cfgvalue = get_cfgvalue(v.id, id)
 			o.write = get_write(v.id, id)
 			o:depends("tcp_node", v.id)
 			o:value("_direct", translate("Direct Connection"))
 			o:value("_blackhole", translate("Blackhole"))
-			for k1, v1 in pairs(socks_list) do
-				o:value(v1.id, v1.remark)
-			end
 			for k1, v1 in pairs(balancing_list) do
 				o:value(v1.id, v1.remark)
 			end
@@ -309,7 +293,7 @@ o.write = function(self, section, value)
 end
 
 o = s:taboption("DNS", Value, "socks_server", translate("Socks Server"), translate("Make sure socks service is available on this address."))
-for k, v in pairs(socks_table) do o:value(v.id, v.remark) end
+for k, v in pairs(socks_table) do o:value(v.id, v.remarks) end
 o.default = socks_table[1].id
 o.validate = function(self, value, t)
 	if not datatypes.ipaddrport(value) then
@@ -330,6 +314,7 @@ o:value("8.8.8.8", "8.8.8.8 (Google)")
 o:value("9.9.9.9", "9.9.9.9 (Quad9-Recommended)")
 o:value("208.67.220.220", "208.67.220.220 (OpenDNS)")
 o:value("208.67.222.222", "208.67.222.222 (OpenDNS)")
+o:value("127.0.0.1:5335", "127.0.0.1:5335 (MosDNS)")
 o:depends({dns_mode = "dns2socks"})
 o:depends({dns_mode = "dns2tcp"})
 o:depends({dns_mode = "udp"})
@@ -385,20 +370,22 @@ o.rmempty = false
 if api.is_finded("chinadns-ng") then
 	o = s:taboption("DNS", Flag, "chinadns_ng", translate("ChinaDNS-NG"), translate("The effect is better, but will increase the memory."))
 	o.default = "0"
-	o:depends({remote_fakedns = false, use_gfw_list = true})
-	o:depends({remote_fakedns = false, chn_list = "direct"})
-
-	o = s:taboption("DNS", ListValue, "chinadns_ng_default_tag", translate("ChinaDNS-NG Domain Default Tag"))
-	o.default = "smart"
-	o:value("smart", translate("Smart DNS"))
-	o:value("gfw", translate("Remote DNS"))
-	o:value("chn", translate("Direct DNS"))
-	o.description = "<ul>"
+	chinadns_ng_default_tag = s:taboption("DNS", ListValue, "chinadns_ng_default_tag", translate("ChinaDNS-NG Domain Default Tag"))
+	chinadns_ng_default_tag.default = "smart"
+	chinadns_ng_default_tag:value("smart", translate("Smart DNS"))
+	chinadns_ng_default_tag:value("gfw", translate("Remote DNS"))
+	chinadns_ng_default_tag:value("chn", translate("Direct DNS"))
+	chinadns_ng_default_tag.description = "<ul>"
 			.. "<li>" .. translate("Forward to both remote and direct DNS, if the direct DNS resolution result is a mainland China ip, then use the direct result, otherwise use the remote result") .. "</li>"
 			.. "<li>" .. translate("Remote DNS can avoid more DNS leaks, but some domestic domain names maybe to proxy!") .. "</li>"
 			.. "<li>" .. translate("Direct DNS Internet experience may be better, but DNS will be leaked!") .. "</li>"
 			.. "</ul>"
-	o:depends("chinadns_ng", true)
+	chinadns_ng_default_tag:depends("chinadns_ng", true)
+	o:depends({dns_mode = "dns2socks"})
+	o:depends({dns_mode = "dns2tcp"})
+	o:depends({dns_mode = "sing-box", remote_fakedns = false})
+	o:depends({dns_mode = "xray"})
+	o:depends({dns_mode = "udp"})
 end
 
 o = s:taboption("DNS", ListValue, "use_default_dns", translate("Default DNS"))
@@ -410,11 +397,9 @@ o.description = translate("The default DNS used when not in the domain name rule
 .. "<li>" .. translate("Remote DNS can avoid more DNS leaks, but some domestic domain names maybe to proxy!") .. "</li>"
 .. "<li>" .. translate("Direct DNS Internet experience may be better, but DNS will be leaked!") .. "</li>"
 .. "</ul>"
-local _depends = {tcp_proxy_mode = "proxy"}
 if api.is_finded("chinadns-ng") then
-	_depends["chinadns_ng"] = false
+	o:depends("chinadns_ng", false)
 end
-o:depends(_depends)
 
 o = s:taboption("DNS", Button, "clear_ipset", translate("Clear IPSET"), translate("Try this feature if the rule modification does not take effect."))
 o.inputstyle = "remove"
@@ -459,20 +444,23 @@ udp_proxy_mode:value("disable", translate("No Proxy"))
 udp_proxy_mode:value("proxy", translate("Proxy"))
 udp_proxy_mode.default = "proxy"
 
-o = s:taboption("Proxy", DummyValue, "switch_mode", " ")
-o.template = appname .. "/global/proxy"
+---- Localhost TCP Proxy Mode
+localhost_tcp_proxy_mode = s:taboption("Proxy", ListValue, "localhost_tcp_proxy_mode", translate("Router Localhost") .. " TCP " .. translate("Proxy Mode"))
+localhost_tcp_proxy_mode:value("default", translatef("Same as the %s default proxy mode", "TCP"))
+localhost_tcp_proxy_mode:value("disable", translate("No Proxy"))
+localhost_tcp_proxy_mode:value("proxy", translate("Proxy"))
+localhost_tcp_proxy_mode.default = "default"
 
-o = s:taboption("Proxy", Flag, "localhost_proxy", translate("Localhost Proxy"), translate("When selected, localhost can transparent proxy."))
-o.default = "1"
-o.rmempty = false
+---- Localhost UDP Proxy Mode
+localhost_udp_proxy_mode = s:taboption("Proxy", ListValue, "localhost_udp_proxy_mode", translate("Router Localhost") .. " UDP " .. translate("Proxy Mode"))
+localhost_udp_proxy_mode:value("default", translatef("Same as the %s default proxy mode", "UDP"))
+localhost_udp_proxy_mode:value("disable", translate("No Proxy"))
+localhost_udp_proxy_mode:value("proxy", translate("Proxy"))
+localhost_udp_proxy_mode.default = "default"
 
-o = s:taboption("Proxy", Flag, "client_proxy", translate("Client Proxy"), translate("When selected, devices in LAN can transparent proxy. Otherwise, it will not be proxy."))
-o.default = "1"
-o.rmempty = false
-
-o = s:taboption("Proxy", DummyValue, "_proxy_tips", " ")
-o.rawhtml = true
-o.cfgvalue = function(t, n)
+tips = s:taboption("Proxy", DummyValue, "tips", " ")
+tips.rawhtml = true
+tips.cfgvalue = function(t, n)
 	return string.format('<a style="color: red" href="%s">%s</a>', api.url("acl"), translate("Want different devices to use different proxy modes/ports/nodes? Please use access control."))
 end
 

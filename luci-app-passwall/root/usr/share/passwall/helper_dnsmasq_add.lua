@@ -1,6 +1,5 @@
 require "luci.sys"
 local api = require "luci.passwall.api"
-local appname = "passwall"
 
 local var = api.get_args(arg)
 local FLAG = var["-FLAG"]
@@ -29,6 +28,7 @@ local CACHE_TEXT_FILE = CACHE_DNS_PATH .. ".txt"
 
 local uci = api.uci
 local sys = api.sys
+local appname = api.appname
 local fs = api.fs
 local datatypes = api.datatypes
 
