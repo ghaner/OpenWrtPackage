@@ -14,6 +14,8 @@
 | [luci-app-fileassistant](https://github.com/ghaner/OpenWrt-Packages)|路由器文件管理|https://github.com/MonwF/luci-app-filebrowser|
 | [luci-app-openclash](https://github.com/vernesong/OpenClash)|A Clash Client For OpenWrt|https://github.com/vernesong/OpenClash|
 | [luci-app-luci-app-passwall](https://github.com/xiaorouji/openwrt-passwall)|A  Client For OpenWrt|https://github.com/xiaorouji/openwrt-passwall|
+| [luci-app-luci-app-passwall2](https://github.com/xiaorouji/openwrt-passwall2)|A  Client For OpenWrt|https://github.com/xiaorouji/openwrt-passwall2|
+| [ShadowSocksR Plus+](https://github.com/fw876/helloworld)|A  Client For OpenWrt|https://github.com/fw876/helloworld|
 | [luci-app-timedreboot](https://github.com/kongfl888/luci-app-timedreboot)|定时重启|https://github.com/kongfl888/luci-app-timedreboot| 
 | [luci-theme-argon](https://github.com/jerrykuku/luci-theme-argon/tree/18.06)|漂亮主题|https://github.com/jerrykuku/luci-theme-argon|
 
