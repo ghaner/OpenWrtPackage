@@ -21,7 +21,7 @@ m.description=translate("Attention:")..
 "<br/>"..
 "<br/>"..translate("When setting this page, if the groups is empty, please go to the <server and group management> page to add")..
 "<br/>"..
-"<br/>"..translate("Introduction to rule set usage: https://lancellc.gitbook.io/clash/clash-config-file/rule-provider")
+"<br/>"..translate("Introduction to rule set usage: https://wiki.metacubex.one/config/rule-providers/content/")
 
 function IsRuleFile(e)
 e=e or""
@@ -42,7 +42,7 @@ function IsYmlFile(e)
 end
 
 -- [[ Edit Game Rule ]] --
-s = m:section(TypedSection, "game_config", translate("Game Rules Append (Only TUN & Meta Core Support)"))
+s = m:section(TypedSection, "game_config", translate("Game Rules Append"))
 s.anonymous = true
 s.addremove = true
 s.sortable = true
@@ -115,10 +115,13 @@ uci:foreach("openclash", "groups",
 
 o:value("DIRECT")
 o:value("REJECT")
+o:value("REJECT-DROP")
+o:value("PASS")
+o:value("GLOBAL")
 o.rmempty = true
 
 -- [[ Edit Other Rule Provider ]] --
-s = m:section(TypedSection, "rule_provider_config", translate("Other Rule Providers Append (Only TUN & Meta Core Support)"))
+s = m:section(TypedSection, "rule_provider_config", translate("Other Rule Providers Append"))
 s.anonymous = true
 s.addremove = true
 s.sortable = true
@@ -191,6 +194,9 @@ uci:foreach("openclash", "groups",
 
 o:value("DIRECT")
 o:value("REJECT")
+o:value("REJECT-DROP")
+o:value("PASS")
+o:value("GLOBAL")
 o.rmempty = true
 
 o = s:option(Value, "interval", translate("Rule Providers Interval(s)"))
@@ -204,7 +210,7 @@ o:value("0", translate("Priority Match"))
 o:value("1", translate("Extended Match"))
 
 -- [[ Edit Custom Rule Provider ]] --
-s = m:section(TypedSection, "rule_providers", translate("Custom Rule Providers Append (Only TUN & Meta Core Support)"))
+s = m:section(TypedSection, "rule_providers", translate("Custom Rule Providers Append"))
 s.anonymous = true
 s.addremove = true
 s.sortable = true

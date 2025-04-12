@@ -81,6 +81,10 @@ local hysteria_protocols = {
 	"faketcp"
 }
 
+local hysteria2_protocols = {
+	"udp"
+}
+
 local obfs = {
 	"plain",
 	"http_simple",
@@ -136,9 +140,10 @@ o:value("trojan", translate("trojan"))
 o:value("vless", translate("Vless ")..translate("(Only Meta Core)"))
 o:value("hysteria", translate("Hysteria ")..translate("(Only Meta Core)"))
 o:value("hysteria2", translate("Hysteria2 ")..translate("(Only Meta Core)"))
-o:value("wireguard", translate("WireGuard")..translate("(TUN&Meta Core)"))
+o:value("wireguard", translate("WireGuard")..translate("(Only Meta Core)"))
 o:value("tuic", translate("Tuic")..translate("(Only Meta Core)"))
 o:value("snell", translate("Snell"))
+o:value("mieru", translate("Mieru"))
 o:value("socks5", translate("Socks5"))
 o:value("http", translate("HTTP(S)"))
 
@@ -157,12 +162,19 @@ o.datatype = "port"
 o.rmempty = false
 o.default = "443"
 
-o = s:option(Value, "ports", translate("Port Hopping"))
+o = s:option(Flag, "flag_port_hopping", translate("Enable Port Hopping"))
+o:depends("type", "hysteria")
+o:depends("type", "hysteria2")
+o.rmempty = true
+o.default = "0"
+
+o = s:option(Value, "ports", translate("Port Range"))
 o.datatype = "portrange"
 o.rmempty = true
 o.default = "20000-40000"
 o.placeholder = translate("20000-40000")
-o:depends("type", "hysteria")
+o:depends({type = "hysteria", flag_port_hopping = true})
+o:depends({type = "hysteria2", flag_port_hopping = true})
 
 o = s:option(Value, "password", translate("Password"))
 o.password = true
@@ -171,6 +183,35 @@ o:depends("type", "ss")
 o:depends("type", "ssr")
 o:depends("type", "trojan")
 o:depends("type", "hysteria2")
+o:depends("type", "mieru")
+
+-- [[ Mieru ]]--
+o = s:option(Value, "port_range", translate("Port Range"))
+o.datatype = "portrange"
+o.rmempty = true
+o.default = "20000-40000"
+o.placeholder = translate("20000-40000")
+o:depends("type", "mieru")
+
+o = s:option(Value, "username", translate("Username"))
+o.rmempty = false
+o.placeholder = "user"
+o:depends("type", "mieru")
+
+o = s:option(ListValue, "transport", translate("Transport"))
+o.rmempty = false
+o.default = "TCP"
+o:value("TCP")
+o:depends("type", "mieru")
+
+o = s:option(ListValue, "multiplexing", translate("Multiplexing"))
+o.rmempty = false
+o.default = "MULTIPLEXING_LOW"
+o:value("MULTIPLEXING_OFF")
+o:value("MULTIPLEXING_LOW")
+o:value("MULTIPLEXING_MIDDLE")
+o:value("MULTIPLEXING_HIGH")
+o:depends("type", "mieru")
 
 -- [[ Tuic ]]--
 o = s:option(Value, "tc_ip", translate("Server IP"))
@@ -278,18 +319,29 @@ o.default = "1420"
 o.placeholder = translate("1420")
 o:depends("type", "wireguard")
 
+o = s:option(Flag, "flag_transport", translate("Enable Transport Protocol Settings"))
+o:depends("type", "hysteria")
+o:depends("type", "hysteria2")
+o.rmempty = true
+o.default = "0"
+
 o = s:option(ListValue, "hysteria_protocol", translate("Protocol"))
 for _, v in ipairs(hysteria_protocols) do o:value(v) end
-o.rmempty = false
-o:depends("type", "hysteria")
+o.rmempty = true
+o:depends({type = "hysteria", flag_transport = true})
 
-o = s:option(Value, "hysteria_up", translate("up"))
+o = s:option(ListValue, "hysteria2_protocol", translate("Protocol"))
+for _, v in ipairs(hysteria2_protocols) do o:value(v) end
+o.rmempty = true
+o:depends({type = "hysteria2", flag_transport = true})
+
+o = s:option(Value, "hysteria_up", translate("Uplink Capacity(Default:Mbps)"))
 o.rmempty = false
 o.description = translate("Required")
 o:depends("type", "hysteria")
 o:depends("type", "hysteria2")
 
-o = s:option(Value, "hysteria_down", translate("down"))
+o = s:option(Value, "hysteria_down", translate("Downlink Capacity(Default:Mbps)"))
 o.rmempty = false
 o.description = translate("Required")
 o:depends("type", "hysteria")
@@ -682,18 +734,59 @@ o:depends("type", "hysteria")
 o:depends("type", "hysteria2")
 
 -- [[ recv_window_conn ]]--
+o = s:option(Flag, "flag_quicparam", translate("Hysterir QUIC parameters"))
+o:depends("type", "hysteria")
+o:depends("type", "hysteria2")
+o.rmempty = true
+o.default = "0"
+
 o = s:option(Value, "recv_window_conn", translate("recv_window_conn"))
 o.rmempty = true
 o.placeholder = translate("QUIC stream receive window")
 o.datatype = "uinteger"
-o:depends("type", "hysteria")
+o:depends({type = "hysteria", flag_quicparam = true})
 
 -- [[ recv_window ]]--
 o = s:option(Value, "recv_window", translate("recv_window"))
 o.rmempty = true
 o.placeholder = translate("QUIC connection receive window")
 o.datatype = "uinteger"
-o:depends("type", "hysteria")
+o:depends({type = "hysteria", flag_quicparam = true})
+
+-- [[ initial_stream_receive_window ]]--
+o = s:option(Value, "initial_stream_receive_window", translate("initial_stream_receive_window"))
+o.rmempty = true
+o.placeholder = translate("QUIC init stream receive window")
+o.datatype = "uinteger"
+o:depends({type = "hysteria2", flag_quicparam = true})
+
+-- [[ max_stream_receive_window ]]--
+o = s:option(Value, "max_stream_receive_window", translate("max_stream_receive_window"))
+o.rmempty = true
+o.placeholder = translate("QUIC max stream receive window")
+o.datatype = "uinteger"
+o:depends({type = "hysteria2", flag_quicparam = true})
+
+-- [[ initial_connection_receive_window ]]--
+o = s:option(Value, "initial_connection_receive_window", translate("initial_connection_receive_window"))
+o.rmempty = true
+o.placeholder = translate("QUIC init connection receive window")
+o.datatype = "uinteger"
+o:depends({type = "hysteria2", flag_quicparam = true})
+
+-- [[ max_connection_receive_window ]]--
+o = s:option(Value, "max_connection_receive_window", translate("max_connection_receive_window"))
+o.rmempty = true
+o.placeholder = translate("QUIC max connection receive window")
+o.datatype = "uinteger"
+o:depends({type = "hysteria2", flag_quicparam = true})
+
+-- [[ hop_interval ]]--
+o = s:option(Value, "hop_interval", translate("Hop Interval (Unit:second)"))
+o.rmempty = true
+o.default = "10"
+o:depends({type = "hysteria", flag_transport = true, flag_port_hopping = true})
+o:depends({type = "hysteria2", flag_port_hopping = true})
 
 -- [[ disable_mtu_discovery ]]--
 o = s:option(ListValue, "disable_mtu_discovery", translate("disable_mtu_discovery"))
@@ -701,13 +794,7 @@ o.rmempty = true
 o:value("true")
 o:value("false")
 o.default = "false"
-o:depends("type", "hysteria")
-
--- [[ hop_interval ]]--
-o = s:option(Value, "hop_interval", translate("Hop Interval"))
-o.rmempty = true
-o.default = "10"
-o:depends("type", "hysteria")
+o:depends({type = "hysteria", flag_quicparam = true})
 
 o = s:option(ListValue, "packet-addr", translate("Packet-Addr")..translate("(Only Meta Core)"))
 o.rmempty = true
@@ -778,6 +865,7 @@ o:depends({type = "vmess", obfs_vmess = "grpc"})
 o = s:option(ListValue, "client_fingerprint", translate("Client Fingerprint")..translate("(Only Meta Core)"))
 o.rmempty = true
 o:value("none")
+o:value("random")
 o:value("chrome")
 o:value("firefox")
 o:value("safari")
@@ -808,6 +896,7 @@ o.rmempty = false
 o:value("true")
 o:value("false")
 o.default = "false"
+o:depends({type = "ss", obfs = "none"})
 
 o = s:option(ListValue, "multiplex_protocol", translate("Protocol"))
 o.rmempty = true
